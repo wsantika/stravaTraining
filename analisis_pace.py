@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import json
-import os
 from google import genai
 from google.genai import types
 import matplotlib.pyplot as plt
@@ -10,6 +9,7 @@ import seaborn as sns
 # --- KONFIGURASI KUNCI API ---
 # ⚠️ GANTI NILAI DI BAWAH INI DENGAN KUNCI GEMINI API ANDA
 GEMINI_API_KEY = "#"
+
 
 # --- FUNGSI LLM REKOMENDASI ---
 def get_llm_recommendation(json_data, api_key):

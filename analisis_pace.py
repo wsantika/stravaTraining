@@ -8,7 +8,11 @@ import seaborn as sns
 
 # --- KONFIGURASI KUNCI API ---
 # ⚠️ GANTI NILAI DI BAWAH INI DENGAN KUNCI GEMINI API ANDA
-GEMINI_API_KEY = "#"
+GEMINI_API_KEY = input("Masukkan Gemini API Key Anda:").strip()
+
+if not GEMINI_API_KEY:
+    print('Error : Kunci API Gemini tidak boleh kosong. Silahkan masukan kunci yang valid.')
+    exit()
 
 
 # --- FUNGSI LLM REKOMENDASI ---

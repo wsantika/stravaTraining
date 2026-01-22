@@ -1,10 +1,11 @@
 import requests
 import pandas as pd
-import os
 
 # --- KONFIGURASI ---
+
+print("=== AMBIL DATA DARI STRAVA ===")
 # Masukkan Access Token yang kamu copy dari website Strava tadi di sini:
-access_token = "#"
+access_token = input('Masukan Access Token Strava Anda:').strip()
 
 # URL API Strava untuk mengambil aktivitas atlet
 url = "https://www.strava.com/api/v3/athlete/activities"

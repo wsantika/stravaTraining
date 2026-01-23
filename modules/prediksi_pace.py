@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression
 # --- 1. LOAD & PREPARE DATA (DARI RAW KE WEEKLY) ---
 
 # Load data mentah
-df = pd.read_csv('data_lari_saya.csv')
+df = pd.read_csv('data/data_lari_saya.csv')
 
 # Konversi ke format tanggal yang benar
 df['date'] = pd.to_datetime(df['date'])

@@ -62,7 +62,7 @@ def get_llm_recommendation(json_data, api_key):
 
 
 # 1. Load Data CSV
-df = pd.read_csv('data_lari_saya.csv')
+df = pd.read_csv('data/data_lari_saya.csv')
 
 # --- TAHAP 1: KLASIFIKASI DATA (FEATURE ENGINEERING) ---
 
@@ -165,7 +165,7 @@ plt.gca().invert_yaxis() # Invers Y-axis agar Pace yang LEBIH CEPAT (angka kecil
 plt.grid(True, linestyle='--', alpha=0.6)
 
 # Simpan Grafik
-plt.savefig('grafik_tren_pace.png')
+plt.savefig('outputs/grafik_tren_pace.png')
 print("\n[INFO] Grafik Tren Pace disimpan di: grafik_tren_pace.png")
 
 
@@ -194,5 +194,5 @@ plt.text(weekly_data['speed_runs'].max() * 0.5, 0.01, 'Zona Pace Melambat', colo
 plt.text(weekly_data['speed_runs'].max() * 0.5, -0.01, 'Zona Pace Meningkat (Lebih Cepat)', color='darkgreen', fontsize=10)
 
 plt.grid(True, linestyle='--', alpha=0.6)
-plt.savefig('grafik_korelasi.png')
+plt.savefig('outputs/grafik_korelasi.png')
 print("[INFO] Grafik Korelasi disimpan di: grafik_korelasi.png")

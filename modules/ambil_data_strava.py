@@ -69,7 +69,7 @@ df_clean['pace_decimal'] = df_clean['duration_min'] / df_clean['distance_km']
 df_clean['date'] = pd.to_datetime(df_clean['start_date_local']).dt.date
 
 # --- 4. SIMPAN HASILNYA ---
-nama_file = "data_lari_saya.csv"
+nama_file = "data/data_lari_saya.csv"
 df_clean.to_csv(nama_file, index=False)
 
 print("-" * 30)

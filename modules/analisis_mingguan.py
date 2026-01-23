@@ -6,7 +6,7 @@ import os
 from scipy import stats
 import matplotlib.pyplot as plt
 
-CSV_PATH = "data_lari_saya.csv"   # sesuaikan jika nama file berbeda
+CSV_PATH = "data/data_lari_saya.csv"   # sesuaikan jika nama file berbeda
 OUTPUT_DIR = "outputs"
 MIN_WEEKS_PER_SIDE = 2
 

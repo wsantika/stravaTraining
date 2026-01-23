@@ -31,7 +31,7 @@ if response.status_code == 200:
     print(f"Refresh Token: {data['refresh_token']}")
     
     # Simpan ke JSON
-    with open('strava_keys.json', 'w') as f:
+    with open('data/strava_keys.json', 'w') as f:
         json.dump(data, f, indent=4)
     print("Disimpan ke strava_keys.json")
 else:

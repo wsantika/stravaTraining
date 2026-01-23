@@ -21,8 +21,8 @@ def strava_oauth_button():
         return None
     
     # GANTI DENGAN LINK APP KAMU JIKA SUDAH ONLINE
-    # redirect_uri = "https://ai-running-coach.streamlit.app" 
-    redirect_uri = "http://localhost:8501" # Pakai ini kalau masih di laptop
+    redirect_uri = "https://ai-running-coach.streamlit.app" 
+    # redirect_uri = "http://localhost:8501" # Pakai ini kalau masih di laptop
     
     query_params = st.query_params
     auth_url = f"https://www.strava.com/oauth/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}&approval_prompt=force&scope=activity:read_all"

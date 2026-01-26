@@ -21,8 +21,8 @@ def strava_oauth_button():
         return None
     
     # GANTI DENGAN LINK APP KAMU JIKA SUDAH ONLINE
-    redirect_uri = "https://ai-running-coach.streamlit.app" 
-    # redirect_uri = "http://localhost:8501" # Pakai ini kalau masih di laptop
+    # redirect_uri = "https://ai-running-coach.streamlit.app" 
+    redirect_uri = "http://localhost:8501" # Pakai ini kalau masih di laptop
     
     query_params = st.query_params
     auth_url = f"https://www.strava.com/oauth/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}&approval_prompt=force&scope=activity:read_all"
@@ -61,40 +61,106 @@ def tukar_token_otomatis(auth_code, client_id, client_secret):
 
 # --- 3. FUNGSI PENGOLAH DATA (CLEANING) ---
 def process_dataframe(df_raw, source_type="api"):
-    """Membersihkan data baik dari API maupun CSV"""
+    """
+    Membersihkan data dan menangani kolom duplikat bandel dari Strava Export.
+    """
     df = df_raw.copy()
     
-    # 1. Normalisasi Nama Kolom (Agar CSV dan API dianggap sama)
+    # --- STEP 0: BERSIHKAN NAMA KOLOM ---
+    # Kadang ada spasi di nama kolom (misal " Distance ")
+    df.columns = df.columns.str.strip()
+
+    # --- STEP 1: HAPUS DUPLIKAT AWAL ---
+    # Strava Export sering punya 2 kolom bernama "Distance". Kita buang yang kedua.
+    df = df.loc[:, ~df.columns.duplicated()]
+
+    # --- STEP 2: MAPPING KAMUS (Bahasa Manusia -> Bahasa Mesin) ---
     col_mapping = {
-        'Distance': 'distance', 
-        'Moving Time': 'moving_time', 
-        'Elapsed Time': 'moving_time',
+        # Format Export CSV Strava
         'Activity Date': 'start_date_local',
+        'Activity Name': 'name',
         'Activity Type': 'type',
-        'Average Speed': 'average_speed'
+        'Elapsed Time': 'moving_time',   
+        'Moving Time': 'moving_time',    # PERHATIAN: Ini bisa bikin duplikat lagi, kita handle di Step 3
+        'Distance': 'distance',
+        'Elevation Gain': 'total_elevation_gain',
+        'Average Speed': 'average_speed',
+        'Max Speed': 'max_speed',
+        'Average Heart Rate': 'average_heartrate',
+        
+        # Bahasa Indonesia (Jaga-jaga)
+        'Tanggal': 'start_date_local',
+        'Jarak': 'distance',
+        'Waktu': 'moving_time',
+        'Tipe': 'type'
     }
+    
+    # Lakukan Rename
     df.rename(columns=col_mapping, inplace=True)
     
-    # 2. Filter hanya Lari
+    # --- STEP 3: HAPUS DUPLIKAT (LAGI!) ---
+    # PENTING: Karena 'Elapsed Time' dan 'Moving Time' sama-sama jadi 'moving_time',
+    # sekarang kolom 'moving_time' jadi ada dua. Kita harus hapus salah satunya.
+    df = df.loc[:, ~df.columns.duplicated()]
+    
+    # --- STEP 4: PILIH KOLOM PENTING ---
+    required_cols = [
+        'name', 'start_date_local', 'distance', 'moving_time', 
+        'total_elevation_gain', 'average_speed', 'max_speed', 'average_heartrate'
+    ]
+    
+    # Buat kolom yang hilang dengan nilai 0
+    for col in required_cols:
+        if col not in df.columns:
+            df[col] = 0
+            
+    # Ambil kolom yang sudah bersih
+    df = df[required_cols].copy()
+    
+    # --- STEP 5: FILTER HANYA LARI ---
+    # Kita cek kolom 'type' untuk mengambil aktivitas lari saja
     if 'type' in df.columns:
-        df = df[df['type'].astype(str).str.contains('Run|Lari', case=False, na=False)]
-    
-    # 3. Pastikan kolom numerik aman (Hapus koma jika ada string "1,000")
-    for col in ['distance', 'moving_time']:
-        if col in df.columns and df[col].dtype == object:
-             df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
+        is_run = df['type'].astype(str).str.contains('Run|Lari', case=False, na=False)
+        df = df[is_run]
 
-    # 4. Feature Engineering
-    if 'distance' in df.columns and 'moving_time' in df.columns:
-        df['distance_km'] = df['distance'] / 1000
-        df['duration_min'] = df['moving_time'] / 60
-        df['pace'] = df.apply(lambda x: x['duration_min'] / x['distance_km'] if x['distance_km'] > 0 else 0, axis=1)
+    # --- STEP 6: KONVERSI ANGKA (FIX ERROR DTYPE) ---
+    # Kita paksa semua kolom angka menjadi numerik tanpa cek .dtype dulu
+    # agar tidak kena error "DataFrame has no attribute dtype"
+    numeric_cols = ['distance', 'moving_time', 'average_speed', 'total_elevation_gain']
     
-    # 5. Tanggal
-    if 'start_date_local' in df.columns:
-        df['date'] = pd.to_datetime(df['start_date_local'], errors='coerce').dt.date
-        df['date_obj'] = pd.to_datetime(df['start_date_local'], errors='coerce')
-        df = df.dropna(subset=['date_obj']).sort_values(by='date_obj').reset_index(drop=True)
+    for col in numeric_cols:
+        # Hapus koma (pemisah ribuan) jika ada, lalu paksa jadi angka
+        # errors='coerce' akan mengubah text error jadi NaN (0)
+        df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce')
+            
+    df = df.fillna(0) 
+
+    # --- STEP 7: LOGIKA SATUAN (KM vs METER) ---
+    # CSV Strava Export itu unik:
+    # - Distance biasanya dalam METER (tapi kadang KM tergantung setting)
+    # - Moving Time biasanya DETIK
+    
+    # Kita pakai logika deteksi:
+    # Kalau rata-rata jarak > 500, kemungkinan itu Meter (lari 5km = 5000). 
+    # Kalau < 500, kemungkinan itu sudah KM.
+    mean_dist = df['distance'].mean()
+    if mean_dist > 500: 
+        df['distance_km'] = df['distance'] / 1000
+    else:
+        df['distance_km'] = df['distance'] 
+        
+    # Konversi Waktu (Detik -> Menit)
+    df['duration_min'] = df['moving_time'] / 60
+    
+    # Hitung Pace
+    df['pace'] = df.apply(lambda x: x['duration_min'] / x['distance_km'] if x['distance_km'] > 0 else 0, axis=1)
+    
+    # Tanggal
+    df['date'] = pd.to_datetime(df['start_date_local'], errors='coerce').dt.date
+    df['date_obj'] = pd.to_datetime(df['start_date_local'], errors='coerce')
+    
+    # Urutkan
+    df = df.dropna(subset=['date_obj']).sort_values(by='date_obj').reset_index(drop=True)
         
     return df
 
@@ -183,16 +249,36 @@ df = None
 
 if uploaded_file is not None:
     try:
+        # Baca CSV Mentah
         df_raw = pd.read_csv(uploaded_file)
+        
+        # Proses Cleaning (Otomatis deteksi format)
         df = process_dataframe(df_raw, source_type="csv")
-        st.info("📂 Menggunakan data dari File CSV yang diupload.")
+        
+        if not df.empty:
+            st.success("✅ Data berhasil dibaca & dibersihkan!")
+            
+            # --- FITUR BARU: DOWNLOAD CSV BERSIH ---
+            # Kita convert dataframe hasil cleaning jadi CSV lagi
+            csv_bersih = df.to_csv(index=False).encode('utf-8')
+            
+            with st.sidebar:
+                st.divider()
+                st.write("📥 **Simpan Data Bersih**")
+                st.caption("Data mentah Anda sudah dirapikan. Anda bisa mengunduhnya untuk disimpan atau dipakai lagi nanti.")
+                st.download_button(
+                    label="Download CSV Siap Training",
+                    data=csv_bersih,
+                    file_name="data_lari_clean.csv",
+                    mime="text/csv",
+                    key='download-csv'
+                )
+        else:
+            st.warning("⚠️ Data terbaca, tapi tidak ditemukan aktivitas Lari (Run) atau format tanggal salah.")
+            
     except Exception as e:
-        st.error(f"Gagal membaca CSV: {e}")
-
-elif token_api:
-    with st.spinner("Mengambil data dari Strava API..."):
-        df = ambil_data_strava_api(token_api)
-        st.success("☁️ Menggunakan data Live dari Strava API.")
+        st.error(f"Gagal memproses CSV: {e}")
+        st.info("Tips: Pastikan file yang diupload adalah 'activities.csv' dari export Strava.")
 
 # --- TAMPILKAN HASIL (GABUNGAN LAYOUT) ---
 if df is not None and not df.empty:
